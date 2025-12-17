@@ -1,272 +1,254 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>Mood Garden V1.6</title>
-  <style>
-    :root{
-      --bg:#07070a;--fg:#eaeaea;--muted:rgba(234,234,234,.65);--panel:rgba(10,10,14,.72);
-      --panelBorder:rgba(234,234,234,.14)
-    }
-    html,body{margin:0;padding:0;width:100%;height:100%;background:var(--bg);
-      font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:var(--fg);overflow:hidden}
-    #cosmos{position:fixed;inset:0;width:100vw;height:100vh;display:block}
-    #hud{position:fixed;top:16px;left:16px;z-index:5;pointer-events:none;user-select:none;line-height:1.2}
-    #hud .title{font-size:13px;letter-spacing:.08em;text-transform:uppercase;opacity:.9}
-    #hud .sub{margin-top:6px;font-size:12px;color:var(--muted);max-width:320px}
-    #ctaWrap{position:fixed;inset:0;display:grid;place-items:center;z-index:6}
-    #cta{pointer-events:auto;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.18);
-      color:var(--fg);padding:14px 18px;border-radius:999px;font-size:14px;cursor:pointer;
-      backdrop-filter:blur(10px);transition:.15s ease all}
-    #cta:hover{transform:translateY(-1px);background:rgba(255,255,255,.1)}
-    #ctaWrap.hidden{opacity:0;pointer-events:none}
-    #overlay{position:fixed;inset:0;z-index:10;display:none;place-items:center;
-      background:rgba(0,0,0,.35);backdrop-filter:blur(6px)}
-    #overlay.show{display:grid}
-    #panel{width:min(720px,calc(100vw-28px));border-radius:18px;padding:18px;
-      background:var(--panel);border:1px solid var(--panelBorder)}
-    #panelHeader{display:flex;justify-content:space-between;align-items:flex-start;gap:14px;margin-bottom:12px}
-    input,textarea{width:100%;border-radius:12px;border:1px solid rgba(255,255,255,.14);
-      background:rgba(255,255,255,.06);color:var(--fg);padding:10px 12px;font-size:14px}
-    textarea{min-height:120px;resize:vertical}
-    .btn{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.18);
-      color:var(--fg);padding:10px 14px;border-radius:12px;cursor:pointer;transition:.15s ease all}
-    .btn:hover{transform:translateY(-1px);background:rgba(255,255,255,.16)}
-    .btn.secondary{background:transparent;color:var(--muted);border-color:rgba(255,255,255,.14)}
-    .btn.secondary:hover{color:var(--fg)}
-  </style>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Mood Garden</title>
+
+<style>
+:root {
+  --bg: #07070a;
+  --fg: #eaeaea;
+  --muted: rgba(234,234,234,.65);
+  --panel: rgba(10,10,14,.72);
+  --panelBorder: rgba(234,234,234,.14);
+}
+html,body {
+  margin:0;
+  height:100%;
+  background:var(--bg);
+  color:var(--fg);
+  font-family: system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+  overflow:hidden;
+}
+
+/* Canvas */
+#cosmos {
+  position:fixed; inset:0;
+  width:100vw; height:100vh;
+}
+
+/* HUD */
+#hud {
+  position:fixed; top:16px; left:16px; z-index:5;
+  user-select:none; pointer-events:none;
+}
+#hud .title {
+  font-size:13px; letter-spacing:.08em; text-transform:uppercase;
+}
+#hud .sub {
+  margin-top:6px; font-size:12px; color:var(--muted);
+  max-width:320px; line-height:1.3;
+}
+
+/* Spotify progress bar */
+#spotifyProgress {
+  width:160px;
+  height:5px;
+  border-radius:999px;
+  background:rgba(255,255,255,0.12);
+  overflow:hidden;
+  margin-top:6px;
+  transition:opacity .3s ease;
+  opacity:0;
+}
+#spotifyProgress.show {opacity:1;}
+#spotifyProgressInner {
+  width:0%; height:100%;
+  background:rgba(255,255,255,0.85);
+  border-radius:inherit;
+  transition:width .25s ease;
+}
+
+/* CTA */
+#ctaWrap {
+  position:fixed; inset:0;
+  display:grid; place-items:center;
+  z-index:6;
+}
+#cta {
+  pointer-events:auto;
+  background:rgba(255,255,255,.06);
+  border:1px solid rgba(255,255,255,.18);
+  color:var(--fg);
+  padding:14px 18px;
+  border-radius:999px;
+  font-size:14px;
+  letter-spacing:.02em;
+  cursor:pointer;
+  backdrop-filter:blur(10px);
+  transition:.15s;
+}
+#cta:hover {
+  background:rgba(255,255,255,.1);
+}
+#ctaWrap.hidden {opacity:0;pointer-events:none;}
+
+/* Album overlay */
+#albumsOverlay {
+  display:none;
+  position:fixed; inset:0;
+  background:rgba(0,0,0,0.6);
+  backdrop-filter:blur(8px);
+  z-index:30;
+  display:grid; place-items:center;
+}
+#albumsPanel {
+  background:var(--panel);
+  border:1px solid var(--panelBorder);
+  border-radius:18px;
+  width:min(680px,90vw);
+  max-height:80vh;
+  overflow:auto;
+  padding:20px;
+}
+.btn {
+  background:rgba(255,255,255,.1);
+  border:1px solid rgba(255,255,255,.2);
+  color:var(--fg);
+  padding:6px 12px;
+  border-radius:12px;
+  cursor:pointer;
+}
+.btn.secondary {
+  background:transparent;
+  color:var(--muted);
+  border-color:rgba(255,255,255,.15);
+}
+</style>
 </head>
+
 <body>
-  <canvas id="cosmos"></canvas>
+<canvas id="cosmos"></canvas>
 
-  <div id="hud">
-    <div class="title">Mood Garden</div>
-    <div class="sub" id="hudSub">You are observing the cosmos.</div>
-  </div>
+<div id="hud">
+  <div class="title">Mood Garden</div>
+  <div class="sub" id="hudSub">You are observing the cosmos.</div>
+  <div id="spotifyProgress"><div id="spotifyProgressInner"></div></div>
+  <button id="showAlbums" class="btn" style="margin-top:10px;pointer-events:auto;">View Albums</button>
+</div>
 
-  <div id="ctaWrap"><button id="cta">Create Mood Garden</button></div>
+<div id="ctaWrap">
+  <button id="cta">Connect Spotify</button>
+</div>
 
-  <div id="overlay">
-    <div id="panel">
-      <div id="panelHeader">
-        <div>
-          <h2>Connect your Mood Garden</h2>
-          <p>Share what shapes your inner world. One album per line — or import from Spotify.</p>
-        </div>
-        <button class="btn secondary" id="close">Close</button>
-      </div>
-      <input id="name" placeholder="Name (or alias)" style="margin-bottom:10px"/>
-      <textarea id="albums" placeholder="Albums or playlists (one per line)"></textarea>
-      <div style="margin-top:12px;display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end">
-        <button class="btn secondary" id="reset">Reset Data</button>
-        <button class="btn secondary" id="seed">Seed Examples</button>
-        <button class="btn" id="spotifyConnect">Connect Spotify</button>
-        <button class="btn" id="connect">Connect</button>
-      </div>
+<!-- Album viewer overlay -->
+<div id="albumsOverlay">
+  <div id="albumsPanel">
+    <div style="display:flex;justify-content:space-between;align-items:center;">
+      <h2>Your Albums</h2>
+      <button id="closeAlbums" class="btn secondary">Close</button>
     </div>
+    <ul id="albumsList" style="margin-top:16px;list-style:none;padding:0;font-size:14px;color:var(--muted);line-height:1.5;"></ul>
   </div>
+</div>
 
 <script>
-/* ---------- constants / storage ---------- */
-const KEY_UNIVERSE="mg_v1_universe",KEY_ME="mg_v1_me",KEY_SEEDED="mg_v1_seeded";
-const loadJSON=(k,f)=>{try{const v=localStorage.getItem(k);return v?JSON.parse(v):f}catch{return f}};
-const saveJSON=(k,v)=>localStorage.setItem(k,JSON.stringify(v));
-const loadMe=()=>loadJSON(KEY_ME,null),saveMe=v=>saveJSON(KEY_ME,v);
-const loadUniverse=()=>loadJSON(KEY_UNIVERSE,[]),saveUniverse=v=>saveJSON(KEY_UNIVERSE,v);
-const uid=()=>Math.random().toString(36).slice(2)+Date.now().toString(36);
-const parseList=t=>t.split("\n").map(s=>s.trim()).filter(Boolean).map(s=>s.toLowerCase());
+/* Storage helpers */
+const KEY_ME="mg_v1_me",KEY_UNIVERSE="mg_v1_universe";
+function uid(){return Math.random().toString(36).slice(2)+Date.now().toString(36);}
+function loadJSON(k,f){try{const v=localStorage.getItem(k);return v?JSON.parse(v):f;}catch{return f;}}
+function saveJSON(k,v){localStorage.setItem(k,JSON.stringify(v));}
+function loadMe(){return loadJSON(KEY_ME,null);}
+function saveMe(v){saveJSON(KEY_ME,v);}
+function saveUniverse(v){saveJSON(KEY_UNIVERSE,v);}
+function loadUniverse(){return loadJSON(KEY_UNIVERSE,[]);}
 
-/* ---------- matching ---------- */
-function buildFreq(u,meA){const f={};u.map(g=>g.albums).concat([meA]).flat().forEach(a=>f[a]=(f[a]||0)+1);return f;}
-function scoreBetween(meA,oA,f){const shared=meA.filter(a=>oA.includes(a));
-  const score=shared.reduce((s,a)=>s+1/(f[a]||1),0);return{shared,score};}
+/* Basic HUD */
+const hudSub=document.getElementById("hudSub");
+const cta=document.getElementById("cta");
+cta.onclick=()=>connectSpotify();
 
-/* ---------- canvas visuals ---------- */
-const canvas=document.getElementById("cosmos"),ctx=canvas.getContext("2d");
-let W=0,H=0,DPR=1,mx=0,my=0,targetMX=0,targetMY=0;
-function resize(){DPR=Math.max(1,Math.min(2,window.devicePixelRatio||1));
-  W=innerWidth;H=innerHeight;canvas.width=W*DPR;canvas.height=H*DPR;
-  canvas.style.width=W+"px";canvas.style.height=H+"px";ctx.setTransform(DPR,0,0,DPR,0,0);
-  buildStarfield();requestDraw();}
-window.addEventListener("resize",resize);
-window.addEventListener("mousemove",e=>{targetMX=(e.clientX/W-0.5)*2;targetMY=(e.clientY/H-0.5)*2;});
-let stars=[],dust=[];
-function buildStarfield(){
-  const count=Math.floor((W*H)/14000);
-  stars=Array.from({length:Math.max(120,count)},()=>({x:Math.random()*W,y:Math.random()*H,r:Math.random()<.85?1:1.6,a:.14+Math.random()*.22}));
-  const dcount=Math.floor((W*H)/22000);
-  dust=Array.from({length:Math.max(80,dcount)},()=>({x:Math.random()*W,y:Math.random()*H,r:1.5+Math.random()*2.8,a:.05+Math.random()*.1,drift:Math.random()*Math.PI*2}));
-}
-let nodes=[],hovered=null,focused=null;
-function layoutNodes(me,u,ranked){
-  nodes=[];hovered=null;focused=null;const cx=W/2,cy=H/2;
-  nodes.push({x:cx,y:cy,r:9,garden:me,shared:[],score:0,isMe:true,glow:1});
-  if(!ranked.length)return;
-  const maxS=Math.max(...ranked.map(r=>r.score)),baseR=Math.min(W,H)*.33;
-  ranked.forEach((r,i)=>{const a=(i/ranked.length)*Math.PI*2,t=maxS>0?r.score/maxS:0,rad=baseR-t*(baseR*.55),
-    x=cx+Math.cos(a)*rad,y=cy+Math.sin(a)*rad;
-    nodes.push({x,y,r:7,garden:r.garden,shared:r.shared,score:r.score,isMe:false,glow:0});});
+function connectSpotify(){
+  const SPOTIFY_CLIENT_ID="ac1de2951cfa471a8c05dc6ef4b56ad4";
+  const SPOTIFY_REDIRECT_URI="https://mood-garden-alpha.vercel.app/";
+  const AUTH_URL=`https://accounts.spotify.com/authorize?client_id=${SPOTIFY_CLIENT_ID}&response_type=code&redirect_uri=${encodeURIComponent(SPOTIFY_REDIRECT_URI)}&scope=user-library-read`;
+  window.location.href=AUTH_URL;
 }
 
-/* ---------- draw ---------- */
-let drawRequested=false;function requestDraw(){if(drawRequested)return;
-  drawRequested=true;requestAnimationFrame(()=>{drawRequested=false;draw();});}
-const tooltip=document.createElement("div");
-Object.assign(tooltip.style,{position:"fixed",padding:"8px 10px",background:"rgba(0,0,0,.55)",
-  border:"1px solid rgba(255,255,255,.15)",borderRadius:"10px",color:"#eaeaea",
-  fontSize:"12px",pointerEvents:"none",opacity:0,transition:"opacity .25s ease",zIndex:15});
-document.body.appendChild(tooltip);
-function draw(){
-  const t=performance.now()*.002;mx+=(targetMX-mx)*.03;my+=(targetMY-my)*.03;
-  ctx.clearRect(0,0,W,H);
-  const g=ctx.createRadialGradient(W/2,H/2,0,W/2,H/2,Math.max(W,H)*.7);
-  g.addColorStop(0,"rgba(255,255,255,.03)");g.addColorStop(1,"rgba(0,0,0,.55)");
-  ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
-  for(const s of stars){ctx.fillStyle=`rgba(255,255,255,${s.a})`;ctx.beginPath();
-    ctx.arc(s.x+mx*40,s.y+my*40,s.r,0,2*Math.PI);ctx.fill();}
-  for(const d of dust){d.drift+=.001;ctx.fillStyle=`rgba(255,255,255,${d.a})`;
-    ctx.beginPath();ctx.arc(d.x+Math.cos(d.drift)*2+mx*80,d.y+Math.sin(d.drift)*2+my*80,d.r,0,2*Math.PI);ctx.fill();}
-  if(!nodes.length)return;
-  const meN=nodes.find(n=>n.isMe);
-  if(meN){for(const n of nodes){if(n.isMe)continue;
-    const emph=focused&&focused!==n?.15:1,hoverB=(hovered===n||focused===n)?1:0.65,
-      alpha=Math.max(.1,Math.min(.35,(n.score||0)*.18))*hoverB*emph;
-    ctx.strokeStyle=`rgba(255,255,255,${alpha})`;ctx.lineWidth=(hovered===n||focused===n)?1.6:1;
-    ctx.beginPath();ctx.moveTo(meN.x,meN.y);ctx.lineTo(n.x,n.y);ctx.stroke();}}
-  for(const n of nodes){
-    const isHover=hovered===n,isFocus=focused===n,dim=focused&&!isFocus&&!n.isMe;
-    const pulse=Math.sin(t*2+n.score*10)*(n.score*.6),
-      size=n.r+pulse+(isHover?2.5:0)+(n.isMe?1.5:0),
-      baseA=n.isMe?.95:.82,a=dim?.25:baseA;n.glow+=((isHover||isFocus?1:0)-n.glow)*.12;
-    if(n.glow>.1){ctx.shadowColor=`rgba(255,255,255,${.6*n.glow})`;ctx.shadowBlur=14*n.glow;}else ctx.shadowBlur=0;
-    ctx.fillStyle=`rgba(255,255,255,${a})`;ctx.beginPath();ctx.arc(n.x,n.y,size,0,2*Math.PI);ctx.fill();ctx.shadowBlur=0;
-    if(!n.isMe&&(isHover||isFocus)){ctx.font="12px system-ui";ctx.textAlign="center";
-      ctx.fillStyle="rgba(234,234,234,.75)";ctx.fillText(n.garden.name||"Unknown",n.x,n.y-16);}
-  }}
-function hitTest(x,y){let best=null,bestD=1e9;for(const n of nodes){
-  const rr=n.r+8,dx=x-n.x,dy=y-n.y,d=Math.hypot(dx,dy);
-  if(d<rr&&d<bestD){best=n;bestD=d;}}return best;}
-canvas.addEventListener("mousemove",e=>{
-  if(!nodes.length)return;const r=canvas.getBoundingClientRect(),x=e.clientX-r.left,y=e.clientY-r.top;
-  const hit=hitTest(x,y);if(hit!==hovered){hovered=hit;if(hit&&!hit.isMe){
-    tooltip.style.opacity=1;tooltip.innerHTML=`<strong>${hit.garden.name}</strong><br>Shared: ${hit.shared.length}`;
-    tooltip.style.left=e.clientX+12+"px";tooltip.style.top=e.clientY+12+"px";
-  }else tooltip.style.opacity=0;requestDraw();}});
-canvas.addEventListener("click",e=>{
-  if(!nodes.length)return;const r=canvas.getBoundingClientRect(),x=e.clientX-r.left,y=e.clientY-r.top;
-  const hit=hitTest(x,y);focused=(!hit||hit.isMe)?null:hit;requestDraw();});
+/* Spotify import with progress bar */
+window.addEventListener("load",async()=>{
+  const params=new URLSearchParams(window.location.search);
+  const code=params.get("code");
+  if(!code)return;
 
-/* ---------- UI ---------- */
-const hudSub=document.getElementById("hudSub"),ctaWrap=document.getElementById("ctaWrap"),
-cta=document.getElementById("cta"),overlay=document.getElementById("overlay"),
-closeBtn=document.getElementById("close"),connectBtn=document.getElementById("connect"),
-resetBtn=document.getElementById("reset"),seedBtn=document.getElementById("seed"),
-nameInput=document.getElementById("name"),albumsInput=document.getElementById("albums");
-cta.onclick=()=>{overlay.classList.add("show");};closeBtn.onclick=()=>overlay.classList.remove("show");
-overlay.onclick=e=>{if(e.target===overlay)overlay.classList.remove("show");};
-resetBtn.onclick=()=>{localStorage.clear();nodes=[];hovered=focused=null;hudSub.textContent="You are observing the cosmos.";ctaWrap.classList.remove("hidden");overlay.classList.remove("show");requestDraw();};
-seedBtn.onclick=()=>{seedUniverse();hudSub.textContent="A few distant gardens drift into view.";setTimeout(()=>hudSub.textContent="You are observing the cosmos.",1200);};
-connectBtn.onclick=()=>{const name=nameInput.value.trim()||"You",albums=parseList(albumsInput.value);
-  if(!albums.length){hudSub.textContent="Add at least one album to connect.";return;}
-  let me=loadMe();me=me?{...me,name,albums}:{id:uid(),name,albums};saveMe(me);
-  if(!localStorage.getItem(KEY_SEEDED))seedUniverse();
-  let u=loadUniverse();const i=u.findIndex(g=>g.id===me.id);
-  i>=0?u[i]={...u[i],name:me.name,albums:me.albums}:u.push(me);saveUniverse(u);
-  const others=u.filter(g=>g.id!==me.id),freq=buildFreq(others,me.albums);
-  const ranked=others.map(g=>{const {shared,score}=scoreBetween(me.albums,g.albums,freq);
-    return{garden:g,shared,score};}).filter(r=>r.score>0).sort((a,b)=>b.score-a.score).slice(0,48);
-  layoutNodes(me,others,ranked);ctaWrap.classList.add("hidden");overlay.classList.remove("show");requestDraw();};
+  const progressBar=document.getElementById("spotifyProgress");
+  const progressInner=document.getElementById("spotifyProgressInner");
+  progressBar.classList.add("show");
+  hudSub.textContent="Connecting to Spotify...";
 
-/* ---------- Spotify Integration ---------- */
-const SPOTIFY_CLIENT_ID="ac1de2951cfa471a8c05dc6ef4b56ad4";
-const SPOTIFY_REDIRECT_URI = "https://mood-garden-alpha.vercel.app/";
-const SPOTIFY_SCOPES="user-library-read";
-document.getElementById("spotifyConnect").onclick=()=>{
-  const u=new URL("https://accounts.spotify.com/authorize");
-  u.searchParams.set("client_id",SPOTIFY_CLIENT_ID);
-  u.searchParams.set("response_type","code");
-  u.searchParams.set("redirect_uri",SPOTIFY_REDIRECT_URI);
-  u.searchParams.set("scope",SPOTIFY_SCOPES);
-  window.location.href=u.toString();
-};
-// --- After user returns from Spotify ---
-window.addEventListener("load", async () => {
-  const params = new URLSearchParams(window.location.search);
-  const code = params.get("code");
-  if (!code) return;
+  try{
+    const res=await fetch(`/api/spotify-auth?code=${code}`);
+    const data=await res.json();
+    console.log("Spotify data:",data);
 
-  hudSub.textContent = "Connecting to Spotify...";
-
-  try {
-    const res = await fetch(`/api/spotify-auth?code=${code}`);
-    const data = await res.json();
-    console.log("Spotify data:", data);
-
-    if (!data.albums || !data.albums.length) {
-      hudSub.textContent = "No albums found in your Spotify library.";
+    if(!data.albums||!data.albums.length){
+      hudSub.textContent="No albums found in your Spotify library.";
+      progressBar.classList.remove("show");
       return;
     }
 
-    const me = {
-      id: uid(),
-      name: data.user,
-      albums: data.albums.map(a => a.toLowerCase())
-    };
+    const total=data.albums.length;
+    let loaded=0;
+    const me={id:uid(),name:data.user,albums:[]};
+
+    for(const album of data.albums){
+      me.albums.push(album.toLowerCase());
+      loaded++;
+      const pct=Math.round((loaded/total)*100);
+      progressInner.style.width=pct+"%";
+      if(loaded%10===0)await new Promise(r=>setTimeout(r,10));
+    }
 
     saveMe(me);
     saveUniverse([me]);
-    localStorage.setItem(KEY_SEEDED, "1");
-
-    hudSub.textContent = `Imported ${data.albums.length} albums from Spotify!`;
-    setTimeout(() => {
-      window.history.replaceState({}, document.title, window.location.pathname);
+    progressInner.style.width="100%";
+    hudSub.textContent=`Imported ${total} albums from Spotify!`;
+    setTimeout(()=>{
+      progressBar.classList.remove("show");
+      window.history.replaceState({},document.title,window.location.pathname);
       location.reload();
-    }, 1500);
-  } catch (err) {
-    console.error("Spotify import error:", err);
-    hudSub.textContent = "Spotify import failed (network).";
+    },1200);
+
+  }catch(err){
+    console.error("Spotify import error:",err);
+    hudSub.textContent="Spotify import failed (network).";
+    progressBar.classList.remove("show");
   }
 });
 
-
-async function fetchSpotifyAlbums(token) {
-  let albums = [];
-  let url = "https://api.spotify.com/v1/me/albums?limit=50";
-  while (url) {
-    console.log("Fetching:", url);
-    const res = await fetch(url, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    const data = await res.json();
-    console.log("Batch:", data);
-    if (data.items) albums.push(...data.items.map(i => i.album.name));
-    url = data.next;
-    if (albums.length > 500) break; // safety limit
+/* Album viewer */
+document.getElementById("showAlbums").addEventListener("click",()=>{
+  const me=loadMe();
+  const list=document.getElementById("albumsList");
+  const overlay=document.getElementById("albumsOverlay");
+  if(!me?.albums?.length){
+    list.innerHTML="<li>No albums imported yet.</li>";
+  }else{
+    list.innerHTML=me.albums.map(a=>`<li>${a}</li>`).join("");
   }
-  return albums;
-}
+  overlay.style.display="grid";
+});
+document.getElementById("closeAlbums").addEventListener("click",()=>{
+  document.getElementById("albumsOverlay").style.display="none";
+});
 
-
-
-/* ---------- seed & boot ---------- */
-function seedUniverse(){
-  if(localStorage.getItem(KEY_SEEDED))return;
-  const ex=[{name:"Moth Static",albums:["kid a","in rainbows","dummy","blue"]},
-    {name:"Salt Lantern",albums:["rumours","grace","vespertine"]},
-    {name:"Black Sand",albums:["in rainbows","black star","mezzanine"]}];
-  const u=loadUniverse();ex.forEach(e=>u.push({id:uid(),name:e.name,albums:e.albums.map(a=>a.toLowerCase())}));
-  saveUniverse(u);localStorage.setItem(KEY_SEEDED,"1");
+/* Simple background for now */
+const canvas=document.getElementById("cosmos");
+const ctx=canvas.getContext("2d");
+function resize(){canvas.width=innerWidth;canvas.height=innerHeight;draw();}
+window.addEventListener("resize",resize);
+function draw(){
+  ctx.fillStyle=varBg();ctx.fillRect(0,0,canvas.width,canvas.height);
+  for(let i=0;i<120;i++){
+    ctx.fillStyle="rgba(255,255,255,"+(0.2+Math.random()*0.6)+")";
+    ctx.beginPath();
+    ctx.arc(Math.random()*canvas.width,Math.random()*canvas.height,Math.random()*1.5,0,Math.PI*2);
+    ctx.fill();
+  }
 }
-function boot(){
-  resize();const me=loadMe();if(!me){ctaWrap.classList.remove("hidden");requestDraw();return;}
-  if(!localStorage.getItem(KEY_SEEDED))seedUniverse();
-  const u=loadUniverse(),others=u.filter(g=>g.id!==me.id),freq=buildFreq(others,me.albums);
-  const ranked=others.map(g=>{const{shared,score}=scoreBetween(me.albums,g.albums,freq);
-    return{garden:g,shared,score};}).filter(r=>r.score>0).sort((a,b)=>b.score-a.score).slice(0,48);
-  layoutNodes(me,others,ranked);ctaWrap.classList.add("hidden");requestDraw();
-}
-boot();
+function varBg(){return getComputedStyle(document.documentElement).getPropertyValue("--bg");}
+resize();
 </script>
 </body>
 </html>

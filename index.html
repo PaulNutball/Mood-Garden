@@ -31,7 +31,8 @@ html,body {
 /* HUD */
 #hud {
   position:fixed; top:16px; left:16px; z-index:5;
-  user-select:none; pointer-events:none;
+  user-select:none;
+  pointer-events:auto;
 }
 #hud .title {
   font-size:13px; letter-spacing:.08em; text-transform:uppercase;
@@ -84,23 +85,43 @@ html,body {
 }
 #ctaWrap.hidden {opacity:0;pointer-events:none;}
 
-/* Album overlay */
-#albumsOverlay {
-  display:none;
-  position:fixed; inset:0;
-  background:rgba(0,0,0,0.6);
-  backdrop-filter:blur(8px);
-  z-index:30;
-  display:grid; place-items:center;
+/* Album sidebar */
+#albumSidebar {
+  position:fixed;
+  top:0;
+  left:0;
+  height:100vh;
+  width:260px;
+  background:rgba(10,10,14,.6);
+  border-right:1px solid var(--panelBorder);
+  backdrop-filter:blur(10px);
+  overflow-y:auto;
+  padding:18px 14px;
+  z-index:4;
+  transform:translateX(-270px);
+  transition:transform .4s ease;
 }
-#albumsPanel {
-  background:var(--panel);
-  border:1px solid var(--panelBorder);
-  border-radius:18px;
-  width:min(680px,90vw);
-  max-height:80vh;
-  overflow:auto;
-  padding:20px;
+#albumSidebar.show {
+  transform:translateX(0);
+}
+#albumSidebar h2 {
+  font-size:14px;
+  text-transform:uppercase;
+  letter-spacing:.06em;
+  margin:0 0 12px 0;
+}
+#albumsList {
+  list-style:none;
+  margin:0;
+  padding:0;
+  font-size:13px;
+  color:var(--muted);
+  line-height:1.45;
+}
+#albumsList li {
+  margin-bottom:4px;
+  border-bottom:1px solid rgba(255,255,255,0.06);
+  padding-bottom:3px;
 }
 .btn {
   background:rgba(255,255,255,.1);
@@ -121,26 +142,22 @@ html,body {
 <body>
 <canvas id="cosmos"></canvas>
 
+<!-- Sidebar for albums -->
+<div id="albumSidebar">
+  <h2>Your Albums</h2>
+  <ul id="albumsList"><li>None yet.</li></ul>
+</div>
+
+<!-- HUD -->
 <div id="hud">
   <div class="title">Mood Garden</div>
   <div class="sub" id="hudSub">You are observing the cosmos.</div>
   <div id="spotifyProgress"><div id="spotifyProgressInner"></div></div>
-  <button id="showAlbums" class="btn" style="margin-top:10px;pointer-events:auto;">View Albums</button>
+  <button id="toggleAlbums" class="btn" style="margin-top:10px;">Show Albums</button>
 </div>
 
 <div id="ctaWrap">
   <button id="cta">Connect Spotify</button>
-</div>
-
-<!-- Album viewer overlay -->
-<div id="albumsOverlay">
-  <div id="albumsPanel">
-    <div style="display:flex;justify-content:space-between;align-items:center;">
-      <h2>Your Albums</h2>
-      <button id="closeAlbums" class="btn secondary">Close</button>
-    </div>
-    <ul id="albumsList" style="margin-top:16px;list-style:none;padding:0;font-size:14px;color:var(--muted);line-height:1.5;"></ul>
-  </div>
 </div>
 
 <script>
@@ -154,7 +171,7 @@ function saveMe(v){saveJSON(KEY_ME,v);}
 function saveUniverse(v){saveJSON(KEY_UNIVERSE,v);}
 function loadUniverse(){return loadJSON(KEY_UNIVERSE,[]);}
 
-/* Basic HUD */
+/* HUD + Spotify */
 const hudSub=document.getElementById("hudSub");
 const cta=document.getElementById("cta");
 cta.onclick=()=>connectSpotify();
@@ -170,7 +187,10 @@ function connectSpotify(){
 window.addEventListener("load",async()=>{
   const params=new URLSearchParams(window.location.search);
   const code=params.get("code");
-  if(!code)return;
+  if(!code){
+    updateSidebar();
+    return;
+  }
 
   const progressBar=document.getElementById("spotifyProgress");
   const progressInner=document.getElementById("spotifyProgressInner");
@@ -217,33 +237,37 @@ window.addEventListener("load",async()=>{
   }
 });
 
-/* Album viewer */
-document.getElementById("showAlbums").addEventListener("click",()=>{
-  const me=loadMe();
-  const list=document.getElementById("albumsList");
-  const overlay=document.getElementById("albumsOverlay");
-  if(!me?.albums?.length){
-    list.innerHTML="<li>No albums imported yet.</li>";
-  }else{
-    list.innerHTML=me.albums.map(a=>`<li>${a}</li>`).join("");
-  }
-  overlay.style.display="grid";
-});
-document.getElementById("closeAlbums").addEventListener("click",()=>{
-  document.getElementById("albumsOverlay").style.display="none";
+/* Sidebar logic */
+const sidebar=document.getElementById("albumSidebar");
+const toggleBtn=document.getElementById("toggleAlbums");
+const albumsList=document.getElementById("albumsList");
+
+toggleBtn.addEventListener("click",()=>{
+  sidebar.classList.toggle("show");
 });
 
-/* Simple background for now */
+function updateSidebar(){
+  const me=loadMe();
+  if(me?.albums?.length){
+    albumsList.innerHTML=me.albums.map(a=>`<li>${a}</li>`).join("");
+    sidebar.classList.add("show");
+  }else{
+    albumsList.innerHTML="<li>No albums imported yet.</li>";
+    sidebar.classList.remove("show");
+  }
+}
+
+/* Simple background stars */
 const canvas=document.getElementById("cosmos");
 const ctx=canvas.getContext("2d");
 function resize(){canvas.width=innerWidth;canvas.height=innerHeight;draw();}
 window.addEventListener("resize",resize);
 function draw(){
   ctx.fillStyle=varBg();ctx.fillRect(0,0,canvas.width,canvas.height);
-  for(let i=0;i<120;i++){
-    ctx.fillStyle="rgba(255,255,255,"+(0.2+Math.random()*0.6)+")";
+  for(let i=0;i<140;i++){
+    ctx.fillStyle="rgba(255,255,255,"+(0.15+Math.random()*0.5)+")";
     ctx.beginPath();
-    ctx.arc(Math.random()*canvas.width,Math.random()*canvas.height,Math.random()*1.5,0,Math.PI*2);
+    ctx.arc(Math.random()*canvas.width,Math.random()*canvas.height,Math.random()*1.6,0,Math.PI*2);
     ctx.fill();
   }
 }

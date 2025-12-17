@@ -180,7 +180,7 @@ connectBtn.onclick=()=>{const name=nameInput.value.trim()||"You",albums=parseLis
 
 /* ---------- Spotify Integration ---------- */
 const SPOTIFY_CLIENT_ID="ac1de2951cfa471a8c05dc6ef4b56ad4";
-const SPOTIFY_REDIRECT_URI = "https://mood-garden-alpha.vercel.app";
+const SPOTIFY_REDIRECT_URI = "https://mood-garden-alpha.vercel.app/";
 const SPOTIFY_SCOPES="user-library-read";
 document.getElementById("spotifyConnect").onclick=()=>{
   const u=new URL("https://accounts.spotify.com/authorize");

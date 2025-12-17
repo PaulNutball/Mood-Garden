@@ -190,30 +190,73 @@ document.getElementById("spotifyConnect").onclick=()=>{
   u.searchParams.set("scope",SPOTIFY_SCOPES);
   window.location.href=u.toString();
 };
-window.addEventListener("load",async()=>{
-  const h=window.location.hash;
-  if(h.includes("access_token")){
-    const p=new URLSearchParams(h.substring(1)),token=p.get("access_token");
-    history.replaceState({},document.title,window.location.pathname);
-    hudSub.textContent="Fetching your Spotify albums...";
-    try{
-      const albums=await fetchSpotifyAlbums(token);
-      if(!albums.length){hudSub.textContent="No liked albums found.";return;}
-      const userRes=await fetch("https://api.spotify.com/v1/me",{headers:{Authorization:"Bearer "+token}});
-      const userData=await userRes.json();
-      const me={id:uid(),name:userData.display_name||"Spotify User",albums:albums.map(a=>a.toLowerCase())};
-      saveMe(me);saveUniverse([me]);localStorage.setItem(KEY_SEEDED,"1");
-      hudSub.textContent=`Imported ${albums.length} albums from Spotify!`;setTimeout(()=>location.reload(),1200);
-    }catch(e){console.error(e);hudSub.textContent="Error fetching Spotify data.";}
+// --- After user returns from Spotify ---
+window.addEventListener("load", async () => {
+  const params = new URLSearchParams(window.location.search);
+  const code = params.get("code");
+  if (!code) return; // no Spotify code in URL
+
+  hudSub.textContent = "Connecting to Spotify...";
+
+  try {
+    // exchange the code for an access token via our backend
+    const res = await fetch(`/api/spotify-auth?code=${code}`);
+    const data = await res.json();
+
+    if (!data.access_token) {
+      console.error("No access token:", data);
+      hudSub.textContent = "Spotify connection failed.";
+      return;
+    }
+
+    const token = data.access_token;
+
+    // fetch user's liked albums
+    const albums = await fetchSpotifyAlbums(token);
+
+    if (!albums.length) {
+      hudSub.textContent = "No liked albums found on Spotify.";
+      return;
+    }
+
+    // fetch profile name
+    const userRes = await fetch("https://api.spotify.com/v1/me", {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    const userData = await userRes.json();
+
+    const me = {
+      id: uid(),
+      name: userData.display_name || "Spotify User",
+      albums: albums.map(a => a.toLowerCase())
+    };
+
+    // save locally
+    saveMe(me);
+    saveUniverse([me]);
+    localStorage.setItem(KEY_SEEDED, "1");
+
+    hudSub.textContent = `Imported ${albums.length} albums from Spotify!`;
+    setTimeout(() => location.href = window.location.origin + window.location.pathname, 1500);
+
+  } catch (err) {
+    console.error(err);
+    hudSub.textContent = "Spotify import failed.";
   }
 });
-async function fetchSpotifyAlbums(token){
-  let albums=[],url="https://api.spotify.com/v1/me/albums?limit=50";
-  while(url){
-    const r=await fetch(url,{headers:{Authorization:"Bearer "+token}});
-    const d=await r.json();if(d.items){albums.push(...d.items.map(i=>i.album.name));url=d.next;}else break;
-  }return albums;
+
+async function fetchSpotifyAlbums(token) {
+  let albums = [];
+  let url = "https://api.spotify.com/v1/me/albums?limit=50";
+  while (url) {
+    const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+    const data = await res.json();
+    if (data.items) albums.push(...data.items.map(i => i.album.name));
+    url = data.next;
+  }
+  return albums;
 }
+
 
 /* ---------- seed & boot ---------- */
 function seedUniverse(){

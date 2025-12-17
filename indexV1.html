@@ -1,0 +1,806 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Mood Garden V1</title>
+
+  <style>
+    :root{
+      --bg: #07070a;
+      --fg: #eaeaea;
+      --muted: rgba(234,234,234,.65);
+      --fainter: rgba(234,234,234,.35);
+      --line: rgba(234,234,234,.25);
+      --panel: rgba(10,10,14,.72);
+      --panelBorder: rgba(234,234,234,.14);
+      --accent: rgba(255,255,255,.92);
+    }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      background: var(--bg);
+      overflow: hidden;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      color: var(--fg);
+    }
+
+    /* Fullscreen canvas */
+    #cosmos {
+      position: fixed;
+      inset: 0;
+      width: 100vw;
+      height: 100vh;
+      display: block;
+    }
+
+    /* Top-left minimal info */
+    #hud {
+      position: fixed;
+      top: 16px;
+      left: 16px;
+      z-index: 5;
+      pointer-events: none;
+      user-select: none;
+      line-height: 1.2;
+    }
+    #hud .title {
+      font-size: 13px;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      opacity: .9;
+    }
+    #hud .sub {
+      margin-top: 6px;
+      font-size: 12px;
+      color: var(--muted);
+      max-width: 320px;
+    }
+    #hud .sub strong {
+      color: var(--fg);
+      font-weight: 600;
+    }
+
+    /* Center CTA (only when no garden yet) */
+    #ctaWrap {
+      position: fixed;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      z-index: 6;
+      pointer-events: none;
+    }
+
+    #cta {
+      pointer-events: auto;
+      background: rgba(255,255,255,.06);
+      border: 1px solid rgba(255,255,255,.18);
+      color: var(--fg);
+      padding: 14px 18px;
+      border-radius: 999px;
+      font-size: 14px;
+      letter-spacing: .02em;
+      cursor: pointer;
+      backdrop-filter: blur(10px);
+      box-shadow: 0 0 0 rgba(255,255,255,0);
+      transition: transform .15s ease, border-color .15s ease, background .15s ease, box-shadow .15s ease, opacity .2s ease;
+    }
+    #cta:hover {
+      transform: translateY(-1px);
+      border-color: rgba(255,255,255,.34);
+      background: rgba(255,255,255,.085);
+      box-shadow: 0 0 24px rgba(255,255,255,.06);
+    }
+    #ctaWrap.hidden { opacity: 0; pointer-events: none; }
+
+    /* Overlay input “clearing” */
+    #overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 10;
+      display: none;
+      place-items: center;
+      background: rgba(0,0,0,.35);
+      backdrop-filter: blur(6px);
+    }
+    #overlay.show { display: grid; }
+
+    #panel {
+      width: min(720px, calc(100vw - 28px));
+      border-radius: 18px;
+      padding: 18px;
+      background: var(--panel);
+      border: 1px solid var(--panelBorder);
+      box-shadow: 0 18px 60px rgba(0,0,0,.55);
+    }
+
+    #panelHeader {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 14px;
+      margin-bottom: 12px;
+    }
+    #panelHeader h2 {
+      margin: 0;
+      font-size: 16px;
+      font-weight: 600;
+      letter-spacing: .01em;
+    }
+    #panelHeader p {
+      margin: 6px 0 0;
+      font-size: 12px;
+      color: var(--muted);
+      max-width: 520px;
+    }
+    #close {
+      background: transparent;
+      border: 1px solid rgba(255,255,255,.14);
+      color: var(--muted);
+      border-radius: 10px;
+      padding: 8px 10px;
+      cursor: pointer;
+      transition: border-color .15s ease, color .15s ease, transform .15s ease;
+    }
+    #close:hover {
+      border-color: rgba(255,255,255,.28);
+      color: var(--fg);
+      transform: translateY(-1px);
+    }
+
+    .row {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 10px;
+      margin-top: 10px;
+    }
+    @media (min-width: 720px) {
+      .row.two {
+        grid-template-columns: 1fr 2fr;
+        gap: 12px;
+      }
+    }
+
+    input, textarea {
+      width: 100%;
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,.14);
+      background: rgba(255,255,255,.06);
+      color: var(--fg);
+      padding: 10px 12px;
+      font-size: 14px;
+      outline: none;
+      transition: border-color .15s ease, background .15s ease;
+    }
+    input:focus, textarea:focus {
+      border-color: rgba(255,255,255,.28);
+      background: rgba(255,255,255,.075);
+    }
+
+    textarea {
+      min-height: 170px;
+      resize: vertical;
+      line-height: 1.35;
+    }
+
+    #panelFooter {
+      margin-top: 12px;
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .hint {
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .btn {
+      background: rgba(255,255,255,.12);
+      border: 1px solid rgba(255,255,255,.18);
+      color: var(--fg);
+      padding: 10px 14px;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: transform .15s ease, border-color .15s ease, background .15s ease;
+      white-space: nowrap;
+    }
+    .btn:hover {
+      transform: translateY(-1px);
+      border-color: rgba(255,255,255,.32);
+      background: rgba(255,255,255,.16);
+    }
+
+    .btn.secondary {
+      background: transparent;
+      color: var(--muted);
+      border-color: rgba(255,255,255,.14);
+    }
+    .btn.secondary:hover {
+      color: var(--fg);
+    }
+  </style>
+</head>
+
+<body>
+  <canvas id="cosmos"></canvas>
+
+  <div id="hud">
+    <div class="title">Mood Garden</div>
+    <div class="sub" id="hudSub">
+      You are observing the cosmos.
+    </div>
+  </div>
+
+  <div id="ctaWrap">
+    <button id="cta">Create Mood Garden</button>
+  </div>
+
+  <div id="overlay">
+    <div id="panel">
+      <div id="panelHeader">
+        <div>
+          <h2>Connect your Mood Garden</h2>
+          <p>Share what shapes your inner world. One album per line. Keep it simple — you can refine later.</p>
+        </div>
+        <button id="close">Close</button>
+      </div>
+
+      <div class="row two">
+        <div>
+          <input id="name" placeholder="Name (or alias)" />
+          <div style="height:10px;"></div>
+          <button class="btn secondary" id="seed">Add a few example gardens</button>
+        </div>
+
+        <div>
+          <textarea id="albums" placeholder="Albums or playlists (one per line)"></textarea>
+        </div>
+      </div>
+
+      <div id="panelFooter">
+        <div class="hint">Tip: Hover nodes to preview. Click a node to focus. Click empty space to unfocus.</div>
+        <div style="display:flex; gap:10px; align-items:center;">
+          <button class="btn secondary" id="reset">Reset local data</button>
+          <button class="btn" id="connect">Connect</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    /***********************
+     * Storage + Data Model
+     ***********************/
+    const KEY_UNIVERSE = "mg_v1_universe";   // array of gardens {id,name,albums[]}
+    const KEY_ME       = "mg_v1_me";         // my garden {id,name,albums[]}
+    const KEY_SEEDED   = "mg_v1_seeded";     // boolean
+
+    function uid() {
+      return Math.random().toString(36).slice(2) + Date.now().toString(36);
+    }
+
+    function parseList(text) {
+      return text
+        .split("\n")
+        .map(s => s.trim())
+        .filter(Boolean)
+        .map(s => s.toLowerCase());
+    }
+
+    function loadJSON(key, fallback) {
+      try {
+        const v = localStorage.getItem(key);
+        return v ? JSON.parse(v) : fallback;
+      } catch {
+        return fallback;
+      }
+    }
+
+    function saveJSON(key, val) {
+      localStorage.setItem(key, JSON.stringify(val));
+    }
+
+    function loadUniverse() {
+      return loadJSON(KEY_UNIVERSE, []);
+    }
+
+    function saveUniverse(u) {
+      saveJSON(KEY_UNIVERSE, u);
+    }
+
+    function loadMe() {
+      return loadJSON(KEY_ME, null);
+    }
+
+    function saveMe(me) {
+      saveJSON(KEY_ME, me);
+    }
+
+    /***********************
+     * Matching (weighted rarity)
+     ***********************/
+    function buildFreq(universe, meAlbums) {
+      const freq = {};
+      const allLists = universe.map(g => g.albums).concat([meAlbums]);
+      allLists.flat().forEach(a => {
+        freq[a] = (freq[a] || 0) + 1;
+      });
+      return freq;
+    }
+
+    function scoreBetween(meAlbums, otherAlbums, freq) {
+      const shared = meAlbums.filter(a => otherAlbums.includes(a));
+      const score = shared.reduce((sum, a) => sum + (1 / (freq[a] || 1)), 0);
+      return { shared, score };
+    }
+
+    /***********************
+     * Visual Universe (Canvas)
+     ***********************/
+    const canvas = document.getElementById("cosmos");
+    const ctx = canvas.getContext("2d");
+
+    let W = 0, H = 0, DPR = 1;
+
+    function resize() {
+      DPR = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
+      W = Math.floor(window.innerWidth);
+      H = Math.floor(window.innerHeight);
+      canvas.width = Math.floor(W * DPR);
+      canvas.height = Math.floor(H * DPR);
+      canvas.style.width = W + "px";
+      canvas.style.height = H + "px";
+      ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+
+      // rebuild background stars (static)
+      buildStarfield();
+      requestDraw();
+    }
+
+    window.addEventListener("resize", resize);
+
+    // Background starfield
+    let stars = [];
+    let dust = [];
+    function buildStarfield() {
+      // faint stars
+      const count = Math.floor((W * H) / 14000);
+      stars = Array.from({ length: Math.max(120, count) }, () => ({
+        x: Math.random() * W,
+        y: Math.random() * H,
+        r: Math.random() < 0.85 ? 1 : 1.6,
+        a: 0.14 + Math.random() * 0.22
+      }));
+
+      // faint “undiscovered nodes”
+      const dcount = Math.floor((W * H) / 22000);
+      dust = Array.from({ length: Math.max(80, dcount) }, () => ({
+        x: Math.random() * W,
+        y: Math.random() * H,
+        r: 1.5 + Math.random() * 2.8,
+        a: 0.05 + Math.random() * 0.10
+      }));
+    }
+
+    // Node layout
+    let nodes = []; // visual nodes {x,y,r,garden,shared[],score,isMe}
+    let hovered = null;
+    let focused = null;
+
+    function layoutNodes(me, universe, ranked) {
+      nodes = [];
+      hovered = null;
+      focused = null;
+
+      const cx = W / 2;
+      const cy = H / 2;
+
+      // me node (center)
+      nodes.push({
+        x: cx,
+        y: cy,
+        r: 9,
+        garden: me,
+        shared: [],
+        score: 0,
+        isMe: true
+      });
+
+      if (!ranked.length) return;
+
+      const maxScore = Math.max(...ranked.map(r => r.score));
+      const baseRadius = Math.min(W, H) * 0.33;
+
+      ranked.forEach((r, i) => {
+        // angle around center (stable-ish)
+        const angle = (i / ranked.length) * Math.PI * 2;
+
+        // closer if stronger
+        const t = maxScore > 0 ? (r.score / maxScore) : 0;
+        const radius = baseRadius - t * (baseRadius * 0.55);
+
+        const x = cx + Math.cos(angle) * radius;
+        const y = cy + Math.sin(angle) * radius;
+
+        nodes.push({
+          x, y,
+          r: 7,
+          garden: r.garden,
+          shared: r.shared,
+          score: r.score,
+          isMe: false
+        });
+      });
+    }
+
+    /***********************
+     * Rendering (event-driven, no jitter)
+     ***********************/
+    let drawRequested = false;
+    function requestDraw() {
+      if (drawRequested) return;
+      drawRequested = true;
+      requestAnimationFrame(() => {
+        drawRequested = false;
+        draw();
+      });
+    }
+
+    function draw() {
+      // background
+      ctx.clearRect(0, 0, W, H);
+
+      // subtle vignette
+      const grad = ctx.createRadialGradient(W/2, H/2, 0, W/2, H/2, Math.max(W,H)*0.7);
+      grad.addColorStop(0, "rgba(255,255,255,0.03)");
+      grad.addColorStop(1, "rgba(0,0,0,0.55)");
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, W, H);
+
+      // stars
+      for (const s of stars) {
+        ctx.fillStyle = `rgba(255,255,255,${s.a})`;
+        ctx.beginPath();
+        ctx.arc(s.x, s.y, s.r, 0, Math.PI*2);
+        ctx.fill();
+      }
+
+      // distant undiscovered dots
+      for (const d of dust) {
+        ctx.fillStyle = `rgba(255,255,255,${d.a})`;
+        ctx.beginPath();
+        ctx.arc(d.x, d.y, d.r, 0, Math.PI*2);
+        ctx.fill();
+      }
+
+      // if no nodes (no me), nothing else to draw
+      if (!nodes.length) return;
+
+      const cx = W / 2;
+      const cy = H / 2;
+
+      // links from me to others
+      const meNode = nodes.find(n => n.isMe);
+      if (meNode) {
+        for (const n of nodes) {
+          if (n.isMe) continue;
+          const emphasis = (focused && focused !== n) ? 0.15 : 1;
+          const hoverBoost = (hovered === n || focused === n) ? 1.0 : 0.65;
+          const alpha = Math.max(0.10, Math.min(0.35, (n.score || 0) * 0.18)) * hoverBoost * emphasis;
+
+          ctx.strokeStyle = `rgba(255,255,255,${alpha})`;
+          ctx.lineWidth = (hovered === n || focused === n) ? 1.6 : 1.0;
+          ctx.beginPath();
+          ctx.moveTo(cx, cy);
+          ctx.lineTo(n.x, n.y);
+          ctx.stroke();
+        }
+      }
+
+      // nodes
+      for (const n of nodes) {
+        const isHover = hovered === n;
+        const isFocus = focused === n;
+        const dim = focused && !isFocus && !n.isMe;
+
+        // glow
+        if (isHover || isFocus) {
+          ctx.shadowColor = "rgba(255,255,255,0.85)";
+          ctx.shadowBlur = 14;
+        } else {
+          ctx.shadowBlur = 0;
+        }
+
+        // node body
+        const baseAlpha = n.isMe ? 0.95 : 0.82;
+        const a = dim ? 0.22 : baseAlpha;
+        ctx.fillStyle = `rgba(255,255,255,${a})`;
+        ctx.beginPath();
+        ctx.arc(n.x, n.y, n.r + (isHover ? 3 : 0) + (n.isMe ? 2 : 0), 0, Math.PI*2);
+        ctx.fill();
+
+        ctx.shadowBlur = 0;
+
+        // label (only for hover/focus, minimal)
+        if (!n.isMe && (isHover || isFocus)) {
+          ctx.font = "12px system-ui, -apple-system, sans-serif";
+          ctx.textAlign = "center";
+          ctx.fillStyle = "rgba(234,234,234,0.75)";
+          ctx.fillText(n.garden.name || "Unknown", n.x, n.y - 16);
+        }
+      }
+    }
+
+    /***********************
+     * UI / State machine
+     ***********************/
+    const hudSub = document.getElementById("hudSub");
+    const ctaWrap = document.getElementById("ctaWrap");
+    const cta = document.getElementById("cta");
+
+    const overlay = document.getElementById("overlay");
+    const closeBtn = document.getElementById("close");
+    const connectBtn = document.getElementById("connect");
+    const resetBtn = document.getElementById("reset");
+    const seedBtn = document.getElementById("seed");
+
+    const nameInput = document.getElementById("name");
+    const albumsInput = document.getElementById("albums");
+
+    function setHUDDefault() {
+      hudSub.innerHTML = `You are observing the cosmos.`;
+    }
+
+    function setHUDConnected(me, extra) {
+      const base = `<strong>${escapeHtml(me.name || "You")}</strong> · connected`;
+      hudSub.innerHTML = extra ? `${base}<br>${extra}` : base;
+    }
+
+    function escapeHtml(s) {
+      return String(s).replace(/[&<>"']/g, m => ({
+        "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#039;"
+      }[m]));
+    }
+
+    function openOverlay() {
+      overlay.classList.add("show");
+      // prefill name if we have me
+      const me = loadMe();
+      if (me?.name) nameInput.value = me.name;
+      albumsInput.focus();
+    }
+
+    function closeOverlay() {
+      overlay.classList.remove("show");
+    }
+
+    cta.addEventListener("click", openOverlay);
+    closeBtn.addEventListener("click", closeOverlay);
+    overlay.addEventListener("click", (e) => {
+      if (e.target === overlay) closeOverlay();
+    });
+
+    resetBtn.addEventListener("click", () => {
+      localStorage.removeItem(KEY_UNIVERSE);
+      localStorage.removeItem(KEY_ME);
+      localStorage.removeItem(KEY_SEEDED);
+      // reset visuals
+      nodes = [];
+      hovered = null;
+      focused = null;
+      setHUDDefault();
+      ctaWrap.classList.remove("hidden");
+      closeOverlay();
+      requestDraw();
+    });
+
+    seedBtn.addEventListener("click", () => {
+      seedUniverse();
+      // subtle confirmation
+      hudSub.innerHTML = `A few distant gardens drift into view.`;
+      setTimeout(() => setHUDDefault(), 1200);
+    });
+
+    connectBtn.addEventListener("click", () => {
+      const name = nameInput.value.trim() || "You";
+      const albums = parseList(albumsInput.value);
+
+      if (!albums.length) {
+        hudSub.innerHTML = `Add at least one album to connect.`;
+        return;
+      }
+
+      // save me
+      let me = loadMe();
+      if (!me) me = { id: uid(), name, albums };
+      else me = { ...me, name, albums };
+      saveMe(me);
+
+      // ensure seed exists (optional)
+      if (!localStorage.getItem(KEY_SEEDED)) seedUniverse();
+
+      // add/update me in universe (so future sessions can match)
+      let universe = loadUniverse();
+      const idx = universe.findIndex(g => g.id === me.id);
+      if (idx >= 0) universe[idx] = { ...universe[idx], name: me.name, albums: me.albums };
+      else universe.push({ id: me.id, name: me.name, albums: me.albums });
+      saveUniverse(universe);
+
+      // compute matches
+      const others = universe.filter(g => g.id !== me.id);
+      const freq = buildFreq(others, me.albums);
+
+      const ranked = others
+        .map(g => {
+          const { shared, score } = scoreBetween(me.albums, g.albums, freq);
+          return { garden: g, shared, score };
+        })
+        .filter(r => r.score > 0)
+        .sort((a,b) => b.score - a.score)
+        .slice(0, 48); // cap for clarity
+
+      layoutNodes(me, others, ranked);
+
+      // update HUD and hide CTA
+      setHUDConnected(me, ranked.length
+        ? `Nearby gardens: ${ranked.length} · hover to preview · click to focus`
+        : `No nearby matches yet · drift awhile, or seed more gardens`);
+
+      ctaWrap.classList.add("hidden");
+      closeOverlay();
+      requestDraw();
+    });
+
+    /***********************
+     * Hover / Focus interactions
+     ***********************/
+    function hitTest(x, y) {
+      // test closest node (ignore “undiscovered dust”)
+      let best = null;
+      let bestD = Infinity;
+      for (const n of nodes) {
+        // allow a slightly bigger hit zone
+        const rr = n.r + 8;
+        const dx = x - n.x;
+        const dy = y - n.y;
+        const d = Math.hypot(dx, dy);
+        if (d < rr && d < bestD) {
+          best = n;
+          bestD = d;
+        }
+      }
+      return best;
+    }
+
+    let lastHover = null;
+
+    canvas.addEventListener("mousemove", (e) => {
+      if (!nodes.length) return;
+
+      const rect = canvas.getBoundingClientRect();
+      const mx = (e.clientX - rect.left);
+      const my = (e.clientY - rect.top);
+
+      const hit = hitTest(mx, my);
+
+      // only redraw + HUD update if hover target changes
+      if (hit !== lastHover) {
+        hovered = hit;
+        lastHover = hit;
+
+        const me = loadMe();
+        if (!me) {
+          setHUDDefault();
+        } else if (!hit || hit.isMe) {
+          // if focused, keep focus text; else default connected
+          if (focused && !focused.isMe) {
+            setHUDConnected(me, `Focused: ${escapeHtml(focused.garden.name)} · shared ${focused.shared.length}`);
+          } else {
+            setHUDConnected(me, `Nearby gardens: ${Math.max(0, nodes.length - 1)} · hover to preview · click to focus`);
+          }
+        } else {
+          setHUDConnected(me, `Hover: ${escapeHtml(hit.garden.name)} · shared ${hit.shared.length}`);
+        }
+
+        requestDraw();
+      }
+    });
+
+    canvas.addEventListener("click", (e) => {
+      if (!nodes.length) return;
+
+      const rect = canvas.getBoundingClientRect();
+      const mx = (e.clientX - rect.left);
+      const my = (e.clientY - rect.top);
+
+      const hit = hitTest(mx, my);
+
+      const me = loadMe();
+      if (!me) return;
+
+      if (!hit || hit.isMe) {
+        focused = null;
+        setHUDConnected(me, `Nearby gardens: ${Math.max(0, nodes.length - 1)} · hover to preview · click to focus`);
+      } else {
+        focused = hit;
+        setHUDConnected(me, `Focused: ${escapeHtml(hit.garden.name)} · shared ${hit.shared.length} · click empty space to unfocus`);
+      }
+
+      requestDraw();
+    });
+
+    /***********************
+     * Seed Universe (optional)
+     ***********************/
+    function seedUniverse() {
+      if (localStorage.getItem(KEY_SEEDED)) return;
+
+      const examples = [
+        { name: "Moth Static", albums: ["kid a", "in rainbows", "the glow pt. 2", "dummy", "blue"] },
+        { name: "Salt Lantern", albums: ["blue", "rumours", "grace", "heaven or las vegas", "vespertine"] },
+        { name: "Black Sand", albums: ["in rainbows", "black star", "mezzanine", "vespertine"] },
+        { name: "Soft Dunes", albums: ["graceland", "either/or", "blue", "when the pawn..."] },
+        { name: "Driftwood", albums: ["songs in the key of life", "blue", "dummy", "grace"] },
+        { name: "Night Orchard", albums: ["mezzanine", "dummy", "kid a", "selected ambient works 85-92"] },
+        { name: "Low Tide", albums: ["in rainbows", "for emma, forever ago", "either/or", "blue"] }
+      ];
+
+      const universe = loadUniverse();
+      examples.forEach(ex => {
+        universe.push({ id: uid(), name: ex.name, albums: ex.albums.map(a => a.toLowerCase()) });
+      });
+      saveUniverse(universe);
+      localStorage.setItem(KEY_SEEDED, "1");
+    }
+
+    /***********************
+     * Boot
+     ***********************/
+    function boot() {
+      resize();
+
+      const me = loadMe();
+      if (!me) {
+        // no garden yet
+        nodes = []; // keep empty (only background)
+        ctaWrap.classList.remove("hidden");
+        setHUDDefault();
+        requestDraw();
+        return;
+      }
+
+      // if user exists, ensure universe seeded and then render their constellation
+      if (!localStorage.getItem(KEY_SEEDED)) seedUniverse();
+
+      const universe = loadUniverse();
+      const others = universe.filter(g => g.id !== me.id);
+      const freq = buildFreq(others, me.albums);
+
+      const ranked = others
+        .map(g => {
+          const { shared, score } = scoreBetween(me.albums, g.albums, freq);
+          return { garden: g, shared, score };
+        })
+        .filter(r => r.score > 0)
+        .sort((a,b) => b.score - a.score)
+        .slice(0, 48);
+
+      layoutNodes(me, others, ranked);
+
+      setHUDConnected(me, ranked.length
+        ? `Nearby gardens: ${ranked.length} · hover to preview · click to focus`
+        : `Connected · no nearby matches yet`);
+
+      ctaWrap.classList.add("hidden");
+      requestDraw();
+    }
+
+    boot();
+  </script>
+</body>
+</html>
